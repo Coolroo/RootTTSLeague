@@ -54,26 +54,40 @@ for(var i = 0; i<falseGames.length; i++)
   invalidGames[falseGames[i]]["reason"] = "(Manual Override)";
 }
 
+/**
+ * The formSubmitted function is called when a player submits a new game
+ * It takes all of the data from the Data Input sheet and checks to see if it is valid.
+ * Invalid data will not be processed
+ *
+ * @docauthor Trelent
+ */
 function formSubmitted() 
 {
+
+  //Load the spreadsheet and get the data
   spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
   dataSheet = spreadsheet.getSheetByName("Data Input");
   allData = dataSheet.getRange(2, 1, dataSheet.getLastRow() - 1, dataSheet.getLastColumn()).getValues();
-  //console.log(allData.length);
+
+  //Check the submissions for validity and mark invalid games
   getValidGames();
+
+  //Remove invalid games from the data array
   var splices = 0;
   for(var i = 0; i<invalidGames.length; i++)
   {
-    //console.log(invalidGames[i]["invalid"]);
     if(invalidGames[i]["invalid"])
     {
       console.log("GAME " + (i + 1) + " IS INVALID");
       allData.splice(i - splices++, 1);
     }
   }
-  //console.log(allData.length);
+ 
+  //Compile the stats with the spliced data
   var stats = compileStats();
   console.log("Compiled Data");
+
+  //Refresh the spreadsheet 
   refreshPlayerStats(stats["PlayerStats"]);
   refreshPlayerDomStats(stats["PlayerStats"]);
   refreshFactionStats(stats["FactionStats"], stats["VagabondStats"]);
@@ -81,498 +95,7 @@ function formSubmitted()
   refreshFactionH2H(stats["FactionStats"]);
 }
 
-function compileStats()
-{
-  console.log("Compiling Stats");
-
-  var stats = {"PlayerStats": {}, "FactionStats": {}, "VagabondStats": {}, "DomStats": {}, "SeasonStats": {}};
-
-  const today = new Date();
-
-  var initStats = [];
-  initStats.push(stats);
-  for(var i = 0; i<seasons.length; i++)
-  {
-    initStats.push(stats["SeasonStats"][seasons[i]] = {"PlayerStats": {}, "FactionStats": {}, "VagabondStats": {}, "DomStats": {}});
-  }
-  //console.log("initStats = " + initStats);
-  for(var l = 0; l<initStats.length; l++)
-  {
-      var playerStats = initStats[l]["PlayerStats"];
-      var teamStats = initStats[l]["FactionStats"];
-      var vagaStats = initStats[l]["VagabondStats"];
-      var domStats = initStats[l]["DomStats"];
-    //Team Init
-      for(var i = 0; i<teams.length; i++)
-      {
-        console.log("Team (" + teams[i] + ") Initialized");
-        teamStats[teams[i]] = {"H2H": {}, "turnStats":[{"games":0, "wins":0},{"games":0, "wins":0},{"games":0, "wins":0},{"games":0, "wins":0}], "mapStats":{"Summer":{"games":0, "wins":0},"Winter":{"games":0, "wins":0},"Lake":{"games":0, "wins":0},"Mountain":{"games":0, "wins":0}}, "baseStats":{"games":0, "wins":0, "drafted":0}, "landmarkStats": {}};
-        //console.log(teamStats[teams[i]]);
-        for(var j = 0; j<landmarks.length; j++)
-        {
-          teamStats[teams[i]]["landmarkStats"][landmarks[j]] = {"games":0, "wins": 0};
-        }
-        for(var j = 0; j<teams.length; j++)
-        {
-          teamStats[teams[i]]["H2H"][teams[j]] = {"losses": 0, "wins": 0, "games": 0};
-        }
-      }
-
-      //Vagabond Init
-      for(var i = 0; i<vagabonds.length; i++)
-      {
-        vagaStats[vagabonds[i]] = {"turnStats":[{"games":0, "wins":0},{"games":0, "wins":0},{"games":0, "wins":0},{"games":0, "wins":0}], "mapStats":{"Summer":{"games":0, "wins":0},"Winter":{"games":0, "wins":0},"Lake":{"games":0, "wins":0},"Mountain":{"games":0, "wins":0}}, "baseStats":{"games":0, "wins":0, "drafted":0}, "landmarkStats": {}};
-        for(var j = 0; j<landmarks.length; j++)
-        {
-          vagaStats[vagabonds[i]]["landmarkStats"][landmarks[j]] = {"games": 0, "wins": 0};
-        }
-      }
-
-      //Dom Init
-      for(var i = 0; i<teams.length; i++)
-      {
-        var domTeamStats = {"baseStats": {}, "turnStats": [{},{},{},{}], "mapStats": {}};
-        domTeamStats["baseStats"] = {"general": {"games": 0, "wins": 0}, "fox":{"games": 0, "wins": 0}, "bunny":{"games": 0, "wins": 0}, "mouse":{"games": 0, "wins": 0}, "bird":{"games": 0, "wins": 0}};
-        for(var j = 0; j<4; j++)
-        {
-          domTeamStats["turnStats"][j] = {"general": {"games": 0, "wins": 0}, "fox":{"games": 0, "wins": 0}, "bunny":{"games": 0, "wins": 0}, "mouse":{"games": 0, "wins": 0}, "bird":{"games": 0, "wins": 0}};
-          domTeamStats["mapStats"][maps[j]] = {"general": {"games": 0, "wins": 0}, "fox":{"games": 0, "wins": 0}, "bunny":{"games": 0, "wins": 0}, "mouse":{"games": 0, "wins": 0}, "bird":{"games": 0, "wins": 0}};
-        }
-        domStats[teams[i]] = domTeamStats;
-      }
-  }
-  console.log("PROCESSING ALL DATA");
-  for(var i = 0; i<allData.length; i++)
-  {
-    var data = allData[i];
-    var timeStamp = data[timeStampOffset];
-    var playerIDs = [data[dataIDOffset + 0], data[dataIDOffset + 1], data[dataIDOffset + 2], data[dataIDOffset + 3]];
-    var playerTeams = [data[dataTeamOffset + 0], data[dataTeamOffset + 1], data[dataTeamOffset + 2], data[dataTeamOffset + 3]];
-    var winningPlayer = getWinner(data[dataWinnerOffset].toString());
-    var playerPoints = [data[dataPointsOffset + 0], data[dataPointsOffset + 1], data[dataPointsOffset + 2], data[dataPointsOffset + 3]];
-    var map = data[dataMapOffset];
-    var landmark = data[dataLandmarkOffset];
-
-
-    //Find valid Seasons
-    var validSeasons = [];
-    for(var j = 0; j<seasons.length; j++)
-    {
-      const thisSeason = seasons[j];
-      const thisDay = new Date(timeStamp);
-      if(thisSeason["startDate"].getTime() - thisDay.getTime() < 0 && (thisSeason["endDate"] == null || thisSeason["endDate"].getTime() - thisDay.getTime() > 0))
-      {
-        validSeasons.push(thisSeason);
-      }
-    }
-
-    var winIndexes = [false, false, false, false];
-    winIndexes[winningPlayer] = true;
-
-    //Init Stats List
-    var statsList = [stats];
-    for(var vs = 0; vs<validSeasons.length; vs++)
-    {
-      statsList.push(stats["SeasonStats"][seasons[vs]]);
-    }
-    //console.log(statsList);
-    for(var stat = 0; stat<statsList.length; stat++)
-    {
-      var playerStats = statsList[stat]["PlayerStats"];
-      var teamStats = statsList[stat]["FactionStats"];
-      var vagaStats = statsList[stat]["VagabondStats"];
-      var domStats = statsList[stat]["DomStats"];
-      //Player Stats
-      for(var j = 0; j<numPlayers; j++)
-      {
-        var players = Object.keys(playerStats);
-        if(players.indexOf(playerIDs[j]) < 0)
-        {
-          playerStats[playerIDs[j]] = createPlayerStats(numPlayers);
-          //console.log("Player with ID (" + playerIDs[j] + ") initialized");
-        }
-        //console.log(playerStats[playerIDs[j]]["gameStats"]);
-        var myStats = playerStats[playerIDs[j]]["gameStats"];
-        var winner = (winIndexes[j]) ? 1 : 0;
-
-        myStats["games"]++;
-        myStats["wins"] += winner;
-        if(isDom(playerPoints[j].toString()))
-        {
-          var playerDomStats = myStats["dom"];
-          var domSuit = getDomType(playerPoints[j].toString());
-
-          playerDomStats["generalStats"]["general"]["games"]++;
-          playerDomStats["generalStats"]["general"]["wins"]+=winner;
-
-          playerDomStats["generalStats"][domSuit]["games"]++;
-          playerDomStats["generalStats"][domSuit]["wins"]+=winner;
-
-          playerDomStats["maps"][map]["general"]["games"]++;
-          playerDomStats["maps"][map]["general"]["wins"] += winner;
-
-          playerDomStats["maps"][map][domSuit]["games"]++;
-          playerDomStats["maps"][map][domSuit]["wins"] += winner;
-
-          var domTurnStats = playerDomStats["turnStats"][j];
-
-          domTurnStats["general"]["games"]++;
-          domTurnStats["general"]["wins"]+= winner;
-
-          domTurnStats[domSuit]["games"]++;
-          domTurnStats[domSuit]["wins"] += winner;
-          
-        }
-        else if(isCoalition(playerPoints[j].toString()))
-        {
-          var coalitionStats = myStats["coalition"];
-
-          coalitionStats["generalStats"]["games"]++;
-          coalitionStats["generalStats"]["wins"]+=winner;
-
-          coalitionStats["maps"][map]["games"]++;
-          coalitionStats["maps"][map]["wins"] += winner;
-
-
-          var coalitionTurnStats = coalitionStats["turnStats"][j];
-
-          coalitionTurnStats["games"]++;
-          coalitionTurnStats["wins"]+= winner;
-
-        }
-        else
-        {
-          myStats["points"] += Number(playerPoints[j]);
-        }
-
-        myStats["turnStats"][j]["games"]++;
-        myStats["turnStats"][j]["wins"] += winner;
-
-        myStats["maps"][map]["games"]++;
-        myStats["maps"][map]["wins"] += winner;
-        
-        myStats["landmarks"][landmark]["games"]++;
-        myStats["landmarks"][landmark]["wins"] += winner;
-
-        var myTeams = myStats["teams"];
-        switch(playerTeams[j])
-        {
-          case "Marquise de Cat":
-          myTeams[teams[0]]["games"]++;
-          myTeams[teams[0]]["wins"]+= winner;
-          break;
-
-          case "Eyrie Dynasties":
-          myTeams[teams[1]]["games"]++;
-          myTeams[teams[1]]["wins"]+= winner;
-          break;
-
-          case "Woodland Alliance":
-          myTeams[teams[2]]["games"]++;
-          myTeams[teams[2]]["wins"]+= winner;
-          break;
-
-          case "Riverfolk Company":
-          myTeams[teams[4]]["games"]++;
-          myTeams[teams[4]]["wins"]+= winner;
-          break;
-
-          case "Lizard Cult":
-          myTeams[teams[5]]["games"]++;
-          myTeams[teams[5]]["wins"]+= winner;
-          break;
-
-          case "Underground Duchy":
-          myTeams[teams[6]]["games"]++;
-          myTeams[teams[6]]["wins"]+= winner;
-          break;
-
-          case "Corvid Conspiracy":
-          myTeams[teams[7]]["games"]++;
-          myTeams[teams[7]]["wins"]+= winner;
-          break;
-
-          case "Lord of the Hundreds":
-          myTeams[teams[8]]["games"]++;
-          myTeams[teams[8]]["wins"]+= winner;
-          break;
-
-          case "Keepers in Iron":
-          myTeams[teams[9]]["games"]++;
-          myTeams[teams[9]]["wins"]+= winner;
-          break;
-          
-          default:
-          myTeams[teams[3]]["games"]++;
-          myTeams[teams[3]]["wins"]+= winner;
-          var vagaName = playerTeams[j].substring(9);
-          var vagaTeams = myTeams[teams[3]]["stats"];
-          switch(vagaName)
-          {
-            case "(Adventurer)":
-            vagaTeams[vagabonds[0]]["games"]++;
-            vagaTeams[vagabonds[0]]["wins"] += winner;
-            break;
-
-            case "(Arbiter)":
-            vagaTeams[vagabonds[1]]["games"]++;
-            vagaTeams[vagabonds[1]]["wins"] += winner;
-            break;
-
-            case "(Harrier)":
-            vagaTeams[vagabonds[2]]["games"]++;
-            vagaTeams[vagabonds[2]]["wins"] += winner;
-            break;
-
-            case "(Ranger)":
-            vagaTeams[vagabonds[3]]["games"]++;
-            vagaTeams[vagabonds[3]]["wins"] += winner;
-            break;
-
-            case "(Ronan)":
-            vagaTeams[vagabonds[4]]["games"]++;
-            vagaTeams[vagabonds[4]]["wins"] += winner;
-            break;
-
-            case "(Scoundrel)":
-            vagaTeams[vagabonds[5]]["games"]++;
-            vagaTeams[vagabonds[5]]["wins"] += winner;
-            break;
-
-            case "(Thief)":
-            vagaTeams[vagabonds[6]]["games"]++;
-            vagaTeams[vagabonds[6]]["wins"] += winner;
-            break;
-
-            case "(Tinker)":
-            vagaTeams[vagabonds[7]]["games"]++;
-            vagaTeams[vagabonds[7]]["wins"] += winner;
-            break;
-
-            case "(Vagrant)":
-            vagaTeams[vagabonds[8]]["games"]++;
-            vagaTeams[vagabonds[8]]["wins"] += winner;
-            break;
-          }
-          break;
-        }
-      }
-
-      //Faction + Vagabond Stats
-      var playingTeams = [];
-      var winningPlayer = getWinner(allData[i][dataWinnerOffset]);
-      var winningTeam = "";
-      for(var j = 0; j<numPlayers + 1; j++)
-      {
-        var won = (winningPlayer == j) ? 1 : 0;
-        var map = allData[i][dataMapOffset];
-        var landmark = allData[i][dataLandmarkOffset];
-        var team = allData[i][dataTeamOffset+j];
-        var myTeamStats = null;
-        var isVaga = false;
-        //console.log("Processing team " + (j + 1));
-        var localTeam = "";
-        switch(team)
-        {
-          case "Marquise de Cat":
-          localTeam = teams[0];
-          myTeamStats = teamStats[teams[0]];
-          break;
-
-          case "Eyrie Dynasties":
-          localTeam = teams[1];
-          myTeamStats = teamStats[teams[1]];
-          break;
-
-          case "Woodland Alliance":
-          localTeam = teams[2];
-          myTeamStats = teamStats[teams[2]];
-          break;
-
-          case "Riverfolk Company":
-          localTeam = teams[4];
-          myTeamStats = teamStats[teams[4]];
-          break;
-
-          case "Lizard Cult":
-          localTeam = teams[5];
-          myTeamStats = teamStats[teams[5]];
-          break;
-
-          case "Underground Duchy":
-          localTeam = teams[6];
-          myTeamStats = teamStats[teams[6]];
-          break;
-
-          case "Corvid Conspiracy":
-          localTeam = teams[7];
-          myTeamStats = teamStats[teams[7]];
-          break;
-
-          case "Lord of the Hundreds":
-          localTeam = teams[8];
-          myTeamStats = teamStats[teams[8]];
-          break;
-
-          case "Keepers in Iron":
-          localTeam = teams[9];
-          myTeamStats = teamStats[teams[9]];
-          break;
-          
-          default:
-          localTeam = teams[3];
-          myTeamStats = teamStats[teams[3]];
-          isVaga = true;
-          break;
-        }
-
-        var myBaseStats = myTeamStats["baseStats"];
-        var myTurnStats = myTeamStats["turnStats"];
-        var myMapStats = myTeamStats["mapStats"];
-        var myLandmarkStats = myTeamStats["landmarkStats"];
-
-        myBaseStats["drafted"]++;
-        if(j != numPlayers)
-        {
-          if(won == 1)
-          {
-            winningTeam = localTeam;
-          }
-          playingTeams.push(localTeam);
-          myBaseStats["games"]++;
-          myBaseStats["wins"] += won;
-
-          myTurnStats[j]["games"]++;
-          myTurnStats[j]["wins"] += won;
-
-          myMapStats[map]["games"]++;
-          myMapStats[map]["wins"] += won;
-
-          myLandmarkStats[landmark]["games"]++;
-          myLandmarkStats[landmark]["wins"] += won;
-        }
-        if(isVaga)
-        {
-          var vagaName = team.substring(9);
-          var myVaga = null;
-          switch(vagaName)
-          {
-            case "(Adventurer)":
-            myVaga = vagabonds[0];
-            break;
-
-            case "(Arbiter)":
-            myVaga = vagabonds[1];
-            break;
-
-            case "(Harrier)":
-            myVaga = vagabonds[2];
-            break;
-
-            case "(Ranger)":
-            myVaga = vagabonds[3];
-            break;
-
-            case "(Ronan)":
-            myVaga = vagabonds[4];
-            break;
-
-            case "(Scoundrel)":
-            myVaga = vagabonds[5];
-            break;
-
-            case "(Thief)":
-            myVaga = vagabonds[6];
-            break;
-
-            case "(Tinker)":
-            myVaga = vagabonds[7];
-            break;
-
-            case "(Vagrant)":
-            myVaga = vagabonds[8];
-            break;
-          }
-
-          myBaseStats = vagaStats[myVaga]["baseStats"];
-          myTurnStats = vagaStats[myVaga]["turnStats"];
-          myMapStats = vagaStats[myVaga]["mapStats"];
-          myLandmarkStats = vagaStats[myVaga]["landmarkStats"];
-          
-          myBaseStats["drafted"]++;
-          if(j != numPlayers)
-          {
-            myBaseStats["games"]++;
-            myBaseStats["wins"] += won;
-
-            myTurnStats[j]["games"]++;
-            myTurnStats[j]["wins"] += won;
-
-            myMapStats[map]["games"]++;
-            myMapStats[map]["wins"] += won;
-            
-            myLandmarkStats[landmark]["games"]++;
-            myLandmarkStats[landmark]["wins"] += won;
-          }
-        }
-      }
-      for(var j = 0; j<playingTeams.length; j++)
-      {
-        teamStats[playingTeams[j]]["H2H"][winningTeam]["losses"]++;
-        teamStats[winningTeam]["H2H"][playingTeams[j]]["wins"]++;
-        for(var k = 0; k<playingTeams.length; k++)
-        {
-          teamStats[playingTeams[j]]["H2H"][playingTeams[k]]["games"]++;
-        }
-      }
-
-      //Dom Stats
-      //console.log("Dom Game " + (i + 1));
-      var winningPlayer = getWinner(allData[i][dataWinnerOffset]);
-      for(var j = 0; j<numPlayers; j++)
-      {
-        //console.log("Dom Team " + (j + 1));
-        var points = allData[i][dataPointsOffset+j];
-        if(isDom(points.toString()))
-        {
-          var domType = getDomType(points.toString());
-          var won = (winningPlayer == j) ? 1 : 0;
-          var map = allData[i][dataMapOffset];
-          var team = allData[i][dataTeamOffset+j];
-          
-
-          var myStats = domStats[team];
-          var myMapStats = myStats["mapStats"];
-          var myBaseStats = myStats["baseStats"];
-          var myTurnStats = myStats["turnStats"];
-
-          myBaseStats["general"]["games"]++;
-          myBaseStats["general"]["wins"] += won;
-
-          myBaseStats[domType]["games"]++;
-          myBaseStats[domType]["wins"] += won;
-
-          myMapStats[map]["general"]["games"]++;
-          myMapStats[map]["general"]["wins"] += won;
-
-          myMapStats[map][domType]["games"]++;
-          myMapStats[map][domType]["wins"] += won;
-
-          myTurnStats[j]["general"]["games"]++;
-          myTurnStats[j]["general"]["wins"] += won;
-
-          myTurnStats[j][domType]["games"]++;
-          myTurnStats[j][domType]["wins"] += won;
-        }
-        else if(isCoalition(points.toString())){}
-      }
-    }
-    console.log(((i+1)*100/allData.length).toFixed(2) + "% Complete");
-  }
-
-  return stats;
-
-}
+//Spreadsheet update functions
 
 function refreshPlayerStats(playerStats)
 {
@@ -941,6 +464,668 @@ function refreshFactionH2H(stats)
   factionSheet.getRange(winRow, winCol, teams.length+1, teams.length+1).setValues(finalWinData);
 }
 
+//Data Processing Functions
+
+function compileStats()
+{
+  console.log("Compiling Stats");
+
+  //Variables & Constants
+  var stats = {"PlayerStats": {}, "FactionStats": {}, "VagabondStats": {}, "DomStats": {}, "SeasonStats": {}};
+  const today = new Date();
+
+  //initialize the stat list for overall stats, and all seasons
+  var initStats = [stats];
+  for(var i = 0; i<seasons.length; i++)
+  {
+    initStats.push(stats["SeasonStats"][seasons[i]] = {"PlayerStats": {}, "FactionStats": {}, "VagabondStats": {}, "DomStats": {}});
+  }
+  
+  //Create stats for all seasons/overall to store the data
+  for(var l = 0; l<initStats.length; l++)
+  {
+      //Personal stat variables
+      var playerStats = initStats[l]["PlayerStats"];
+      var teamStats = initStats[l]["FactionStats"];
+      var vagaStats = initStats[l]["VagabondStats"];
+      var domStats = initStats[l]["DomStats"];
+
+      //Initialize the stats for all factions
+      for(var i = 0; i<teams.length; i++)
+      {
+        console.log("Team (" + teams[i] + ") Initialized");
+        teamStats[teams[i]] = {
+          "H2H": {}, 
+          "turnStats":[{"games":0, "wins":0}, {"games":0, "wins":0}, {"games":0, "wins":0}, {"games":0, "wins":0}], 
+          "mapStats":{"Summer":{"games":0, "wins":0}, "Winter":{"games":0, "wins":0}, "Lake":{"games":0, "wins":0}, "Mountain":{"games":0, "wins":0}},
+          "baseStats":{"games":0, "wins":0, "drafted":0}, 
+          "landmarkStats": {}
+      };
+        
+        //Initialize all landmark stats
+        for(var j = 0; j<landmarks.length; j++)
+        {
+          teamStats[teams[i]]["landmarkStats"][landmarks[j]] = {"games":0, "wins": 0};
+        }
+
+        //Initialize Head-to-Head data
+        for(var j = 0; j<teams.length; j++)
+        {
+          teamStats[teams[i]]["H2H"][teams[j]] = {"losses": 0, "wins": 0, "games": 0};
+        }
+      }
+
+      //Vagabond Init
+      for(var i = 0; i<vagabonds.length; i++)
+      {
+        vagaStats[vagabonds[i]] = {
+          "turnStats":[{"games":0, "wins":0},{"games":0, "wins":0},{"games":0, "wins":0},{"games":0, "wins":0}], 
+          "mapStats":{"Summer":{"games":0, "wins":0},"Winter":{"games":0, "wins":0},"Lake":{"games":0, "wins":0},"Mountain":{"games":0, "wins":0}}, 
+          "baseStats":{"games":0, "wins":0, "drafted":0}, 
+          "landmarkStats": {}
+        };
+
+        //Initialize Landmark Stats
+        for(var j = 0; j<landmarks.length; j++)
+        {
+          vagaStats[vagabonds[i]]["landmarkStats"][landmarks[j]] = {"games": 0, "wins": 0};
+        }
+      }
+
+      //Dom Init
+      for(var i = 0; i<teams.length; i++)
+      {
+        var domTeamStats = {"baseStats": {}, "turnStats": [{},{},{},{}], "mapStats": {}};
+        domTeamStats["baseStats"] = {
+          "general": {"games": 0, "wins": 0}, 
+          "fox":{"games": 0, "wins": 0}, 
+          "bunny":{"games": 0, "wins": 0}, 
+          "mouse":{"games": 0, "wins": 0}, 
+          "bird":{"games": 0, "wins": 0}
+        };
+
+        //Initialize turn based dom stats
+        for(var j = 0; j<4; j++)
+        {
+          domTeamStats["turnStats"][j] = {"general": {"games": 0, "wins": 0}, "fox":{"games": 0, "wins": 0}, "bunny":{"games": 0, "wins": 0}, "mouse":{"games": 0, "wins": 0}, "bird":{"games": 0, "wins": 0}};
+          domTeamStats["mapStats"][maps[j]] = {"general": {"games": 0, "wins": 0}, "fox":{"games": 0, "wins": 0}, "bunny":{"games": 0, "wins": 0}, "mouse":{"games": 0, "wins": 0}, "bird":{"games": 0, "wins": 0}};
+        }
+        domStats[teams[i]] = domTeamStats;
+      }
+  }
+  console.log("PROCESSING ALL DATA");
+
+  //Process all valid games
+  for(var i = 0; i<allData.length; i++)
+  {
+
+    //Collect data vars
+    var data = allData[i];
+    var timeStamp = data[timeStampOffset];
+    var playerIDs = [data[dataIDOffset + 0], data[dataIDOffset + 1], data[dataIDOffset + 2], data[dataIDOffset + 3]];
+    var playerTeams = [data[dataTeamOffset + 0], data[dataTeamOffset + 1], data[dataTeamOffset + 2], data[dataTeamOffset + 3]];
+    var winningPlayer = getWinner(data[dataWinnerOffset].toString());
+    var playerPoints = [data[dataPointsOffset + 0], data[dataPointsOffset + 1], data[dataPointsOffset + 2], data[dataPointsOffset + 3]];
+    var map = data[dataMapOffset];
+    var landmark = data[dataLandmarkOffset];
+
+
+    //Get season this game falls under
+    var validSeasons = [];
+    for(var j = 0; j<seasons.length; j++)
+    {
+      const thisSeason = seasons[j];
+      const thisDay = new Date(timeStamp);
+      if(thisSeason["startDate"].getTime() - thisDay.getTime() < 0 && (thisSeason["endDate"] == null || thisSeason["endDate"].getTime() - thisDay.getTime() > 0))
+      {
+        validSeasons.push(thisSeason);
+      }
+    }
+
+    //Determine the winner
+    var winIndexes = new Array(numPlayers).fill(false);
+    winIndexes[winningPlayer] = true;
+
+    //Get all the valid seasons needing to be processed
+    var statsList = [stats];
+    for(var vs = 0; vs<validSeasons.length; vs++)
+    {
+      statsList.push(stats["SeasonStats"][seasons[vs]]);
+    }
+    
+    //For each season needing to be processed
+    for(var stat = 0; stat<statsList.length; stat++)
+    {
+      //Local variables for this stat collection
+      var playerStats = statsList[stat]["PlayerStats"];
+      var teamStats = statsList[stat]["FactionStats"];
+      var vagaStats = statsList[stat]["VagabondStats"];
+      var domStats = statsList[stat]["DomStats"];
+
+      //Collect player stats for this game
+      for(var j = 0; j<numPlayers; j++)
+      {
+        //Get the players in this game & create stats for this player if they have not played a game in this season
+        var players = Object.keys(playerStats);
+        if(players.indexOf(playerIDs[j]) < 0)
+        {
+          playerStats[playerIDs[j]] = createPlayerStats(numPlayers);
+        }
+        
+        //Get the player stats and determine if they won (winner = 1 === WIN, winner = 0 === LOSE)
+        var myStats = playerStats[playerIDs[j]]["gameStats"];
+        var winner = (winIndexes[j]) ? 1 : 0;
+
+        //Update win stats
+        myStats["games"]++;
+        myStats["wins"] += winner;
+
+
+        //Update Dom Stats
+        if(isDom(playerPoints[j].toString()))
+        {
+          var playerDomStats = myStats["dom"];
+          var domSuit = getDomType(playerPoints[j].toString());
+
+          playerDomStats["generalStats"]["general"]["games"]++;
+          playerDomStats["generalStats"]["general"]["wins"]+=winner;
+
+          playerDomStats["generalStats"][domSuit]["games"]++;
+          playerDomStats["generalStats"][domSuit]["wins"]+=winner;
+
+          playerDomStats["maps"][map]["general"]["games"]++;
+          playerDomStats["maps"][map]["general"]["wins"] += winner;
+
+          playerDomStats["maps"][map][domSuit]["games"]++;
+          playerDomStats["maps"][map][domSuit]["wins"] += winner;
+
+          var domTurnStats = playerDomStats["turnStats"][j];
+
+          domTurnStats["general"]["games"]++;
+          domTurnStats["general"]["wins"]+= winner;
+
+          domTurnStats[domSuit]["games"]++;
+          domTurnStats[domSuit]["wins"] += winner;
+          
+        }
+
+        //Does not happen anymore as coalitions are banned, but leaving here in case coalitions return
+        else if(isCoalition(playerPoints[j].toString()))
+        {
+          var coalitionStats = myStats["coalition"];
+
+          coalitionStats["generalStats"]["games"]++;
+          coalitionStats["generalStats"]["wins"]+=winner;
+
+          coalitionStats["maps"][map]["games"]++;
+          coalitionStats["maps"][map]["wins"] += winner;
+
+
+          var coalitionTurnStats = coalitionStats["turnStats"][j];
+
+          coalitionTurnStats["games"]++;
+          coalitionTurnStats["wins"]+= winner;
+
+        }
+        else
+        {
+          //Otherwise this is a non-dom game, so track the player's points
+          myStats["points"] += Number(playerPoints[j]);
+        }
+        
+
+        //Update player stats based on Turn Order, Map, & Landmarks
+
+        myStats["turnStats"][j]["games"]++;
+        myStats["turnStats"][j]["wins"] += winner;
+
+        myStats["maps"][map]["games"]++;
+        myStats["maps"][map]["wins"] += winner;
+        
+        myStats["landmarks"][landmark]["games"]++;
+        myStats["landmarks"][landmark]["wins"] += winner;
+
+        //Find the team of this player and update it's stats
+        var myTeams = myStats["teams"];
+        switch(playerTeams[j])
+        {
+          case "Marquise de Cat":
+          myTeams[teams[0]]["games"]++;
+          myTeams[teams[0]]["wins"]+= winner;
+          break;
+
+          case "Eyrie Dynasties":
+          myTeams[teams[1]]["games"]++;
+          myTeams[teams[1]]["wins"]+= winner;
+          break;
+
+          case "Woodland Alliance":
+          myTeams[teams[2]]["games"]++;
+          myTeams[teams[2]]["wins"]+= winner;
+          break;
+
+          case "Riverfolk Company":
+          myTeams[teams[4]]["games"]++;
+          myTeams[teams[4]]["wins"]+= winner;
+          break;
+
+          case "Lizard Cult":
+          myTeams[teams[5]]["games"]++;
+          myTeams[teams[5]]["wins"]+= winner;
+          break;
+
+          case "Underground Duchy":
+          myTeams[teams[6]]["games"]++;
+          myTeams[teams[6]]["wins"]+= winner;
+          break;
+
+          case "Corvid Conspiracy":
+          myTeams[teams[7]]["games"]++;
+          myTeams[teams[7]]["wins"]+= winner;
+          break;
+
+          case "Lord of the Hundreds":
+          myTeams[teams[8]]["games"]++;
+          myTeams[teams[8]]["wins"]+= winner;
+          break;
+
+          case "Keepers in Iron":
+          myTeams[teams[9]]["games"]++;
+          myTeams[teams[9]]["wins"]+= winner;
+          break;
+          
+          default:
+          myTeams[teams[3]]["games"]++;
+          myTeams[teams[3]]["wins"]+= winner;
+          var vagaName = playerTeams[j].substring(9);
+          var vagaTeams = myTeams[teams[3]]["stats"];
+          switch(vagaName)
+          {
+            case "(Adventurer)":
+            vagaTeams[vagabonds[0]]["games"]++;
+            vagaTeams[vagabonds[0]]["wins"] += winner;
+            break;
+
+            case "(Arbiter)":
+            vagaTeams[vagabonds[1]]["games"]++;
+            vagaTeams[vagabonds[1]]["wins"] += winner;
+            break;
+
+            case "(Harrier)":
+            vagaTeams[vagabonds[2]]["games"]++;
+            vagaTeams[vagabonds[2]]["wins"] += winner;
+            break;
+
+            case "(Ranger)":
+            vagaTeams[vagabonds[3]]["games"]++;
+            vagaTeams[vagabonds[3]]["wins"] += winner;
+            break;
+
+            case "(Ronan)":
+            vagaTeams[vagabonds[4]]["games"]++;
+            vagaTeams[vagabonds[4]]["wins"] += winner;
+            break;
+
+            case "(Scoundrel)":
+            vagaTeams[vagabonds[5]]["games"]++;
+            vagaTeams[vagabonds[5]]["wins"] += winner;
+            break;
+
+            case "(Thief)":
+            vagaTeams[vagabonds[6]]["games"]++;
+            vagaTeams[vagabonds[6]]["wins"] += winner;
+            break;
+
+            case "(Tinker)":
+            vagaTeams[vagabonds[7]]["games"]++;
+            vagaTeams[vagabonds[7]]["wins"] += winner;
+            break;
+
+            case "(Vagrant)":
+            vagaTeams[vagabonds[8]]["games"]++;
+            vagaTeams[vagabonds[8]]["wins"] += winner;
+            break;
+          }
+          break;
+        }
+      }
+
+      //Compile Faction & Vagabond Stats
+
+      //Game Variables
+      var playingTeams = [];
+      var winningPlayer = getWinner(allData[i][dataWinnerOffset]);
+      var winningTeam = "";
+
+      var seenVaga = false;
+
+      //Check the team of each player in the game IN REVERSE DRAFT ORDER
+      for(var c = numPlayers; c>=0; c--)
+      {
+        //Check undrafted last
+        var j = 0;
+        if(c == 0)
+        {
+          j = numPlayers;
+        }
+        else
+        {
+          j = c - 1;
+        }
+        //Local player variables
+        var won = (winningPlayer == j) ? 1 : 0;
+        var map = allData[i][dataMapOffset];
+        var landmark = allData[i][dataLandmarkOffset];
+        var team = allData[i][dataTeamOffset+j];
+        var myTeamStats = null;
+        var isVaga = false;
+        var localTeam = "";
+
+        //Find the player's team
+        switch(team)
+        {
+          case "Marquise de Cat":
+          localTeam = teams[0];
+          myTeamStats = teamStats[teams[0]];
+          break;
+
+          case "Eyrie Dynasties":
+          localTeam = teams[1];
+          myTeamStats = teamStats[teams[1]];
+          break;
+
+          case "Woodland Alliance":
+          localTeam = teams[2];
+          myTeamStats = teamStats[teams[2]];
+          break;
+
+          case "Riverfolk Company":
+          localTeam = teams[4];
+          myTeamStats = teamStats[teams[4]];
+          break;
+
+          case "Lizard Cult":
+          localTeam = teams[5];
+          myTeamStats = teamStats[teams[5]];
+          break;
+
+          case "Underground Duchy":
+          localTeam = teams[6];
+          myTeamStats = teamStats[teams[6]];
+          break;
+
+          case "Corvid Conspiracy":
+          localTeam = teams[7];
+          myTeamStats = teamStats[teams[7]];
+          break;
+
+          case "Lord of the Hundreds":
+          localTeam = teams[8];
+          myTeamStats = teamStats[teams[8]];
+          break;
+
+          case "Keepers in Iron":
+          localTeam = teams[9];
+          myTeamStats = teamStats[teams[9]];
+          break;
+          
+          default:
+          localTeam = teams[3];
+          myTeamStats = teamStats[teams[3]];
+          isVaga = true;
+          break;
+        }
+
+        //Get the Faction's stats
+        var myBaseStats = myTeamStats["baseStats"];
+        var myTurnStats = myTeamStats["turnStats"];
+        var myMapStats = myTeamStats["mapStats"];
+        var myLandmarkStats = myTeamStats["landmarkStats"];
+
+        //Mark this faction as drafted (Do not count second vagabond)
+        if(!(isVaga && seenVaga))
+        {
+          myBaseStats["drafted"]++;
+        }
+        
+
+        seenVaga ||= isVaga;
+        //If we are looking at a faction that was chosen
+        if(j != numPlayers)
+        {
+          //If we won, then set us as the winning team
+          if(won == 1)
+          {
+            winningTeam = localTeam;
+          }
+
+          //Mark this team as a team that was in the game
+          playingTeams.push(localTeam);
+
+          //Update the faction stats
+          myBaseStats["games"]++;
+          myBaseStats["wins"] += won;
+
+          myTurnStats[j]["games"]++;
+          myTurnStats[j]["wins"] += won;
+
+          myMapStats[map]["games"]++;
+          myMapStats[map]["wins"] += won;
+
+          myLandmarkStats[landmark]["games"]++;
+          myLandmarkStats[landmark]["wins"] += won;
+        }
+        //If this player was a vagabond, find out which vagabond they were
+        if(isVaga)
+        {
+          var vagaName = team.substring(9);
+          var myVaga = null;
+          switch(vagaName)
+          {
+            case "(Adventurer)":
+            myVaga = vagabonds[0];
+            break;
+
+            case "(Arbiter)":
+            myVaga = vagabonds[1];
+            break;
+
+            case "(Harrier)":
+            myVaga = vagabonds[2];
+            break;
+
+            case "(Ranger)":
+            myVaga = vagabonds[3];
+            break;
+
+            case "(Ronan)":
+            myVaga = vagabonds[4];
+            break;
+
+            case "(Scoundrel)":
+            myVaga = vagabonds[5];
+            break;
+
+            case "(Thief)":
+            myVaga = vagabonds[6];
+            break;
+
+            case "(Tinker)":
+            myVaga = vagabonds[7];
+            break;
+
+            case "(Vagrant)":
+            myVaga = vagabonds[8];
+            break;
+          }
+
+          //Collect local Vagabond Stats
+          myBaseStats = vagaStats[myVaga]["baseStats"];
+          myTurnStats = vagaStats[myVaga]["turnStats"];
+          myMapStats = vagaStats[myVaga]["mapStats"];
+          myLandmarkStats = vagaStats[myVaga]["landmarkStats"];
+          
+          //Check to see if another vagabond was drafted as to not fuck up the stats
+          myBaseStats["drafted"]++;
+
+          //If this player was chosen
+          if(j != numPlayers)
+          {
+            myBaseStats["games"]++;
+            myBaseStats["wins"] += won;
+
+            myTurnStats[j]["games"]++;
+            myTurnStats[j]["wins"] += won;
+
+            myMapStats[map]["games"]++;
+            myMapStats[map]["wins"] += won;
+            
+            myLandmarkStats[landmark]["games"]++;
+            myLandmarkStats[landmark]["wins"] += won;
+          }
+        }
+      }
+      for(var j = 0; j<playingTeams.length; j++)
+      {
+        teamStats[playingTeams[j]]["H2H"][winningTeam]["losses"]++;
+        teamStats[winningTeam]["H2H"][playingTeams[j]]["wins"]++;
+        for(var k = 0; k<playingTeams.length; k++)
+        {
+          teamStats[playingTeams[j]]["H2H"][playingTeams[k]]["games"]++;
+        }
+      }
+
+      //Dom Stats
+      var winningPlayer = getWinner(allData[i][dataWinnerOffset]);
+      for(var j = 0; j<numPlayers; j++)
+      {
+        //Check if this player played a dom
+        var points = allData[i][dataPointsOffset+j];
+        if(isDom(points.toString()))
+        {
+          //Get the dom type and other game vars
+          var domType = getDomType(points.toString());
+          var won = (winningPlayer == j) ? 1 : 0;
+          var map = allData[i][dataMapOffset];
+          var team = allData[i][dataTeamOffset+j];
+          
+          //Collect dom stats
+          var myStats = domStats[team];
+          var myMapStats = myStats["mapStats"];
+          var myBaseStats = myStats["baseStats"];
+          var myTurnStats = myStats["turnStats"];
+
+          myBaseStats["general"]["games"]++;
+          myBaseStats["general"]["wins"] += won;
+
+          myBaseStats[domType]["games"]++;
+          myBaseStats[domType]["wins"] += won;
+
+          myMapStats[map]["general"]["games"]++;
+          myMapStats[map]["general"]["wins"] += won;
+
+          myMapStats[map][domType]["games"]++;
+          myMapStats[map][domType]["wins"] += won;
+
+          myTurnStats[j]["general"]["games"]++;
+          myTurnStats[j]["general"]["wins"] += won;
+
+          myTurnStats[j][domType]["games"]++;
+          myTurnStats[j][domType]["wins"] += won;
+        }
+        //Not used
+        else if(isCoalition(points.toString())){}
+      }
+    }
+    //Report compilation progress
+    console.log(((i+1)*100/allData.length).toFixed(2) + "% Complete");
+  }
+
+  return stats;
+
+}
+
+function getValidGames()
+{
+
+  for(var i = 0; i<invalidGames.length; i++)
+  {
+    var data = allData[i];
+    var playerTeams = [data[dataTeamOffset + 0], data[dataTeamOffset + 1], data[dataTeamOffset + 2], data[dataTeamOffset + 3]];
+    var winningPlayer = getWinner(data[dataWinnerOffset].toString());
+    var playerPoints = [data[dataPointsOffset + 0], data[dataPointsOffset + 1], data[dataPointsOffset + 2], data[dataPointsOffset + 3]];
+    var playerIDs = [data[dataIDOffset + 0], data[dataIDOffset + 1], data[dataIDOffset + 2], data[dataIDOffset + 3]];
+
+    for(var j = 0; j<playerTeams;j++)
+    {
+      if(isVagabond(playerTeams[j].toString()) && isDom(playerPoints[j].toString()))
+      {
+        invalidGames[i]["invalid"] = true;
+        invalidGames[i]["reason"] += "(Vagabond Dom)";
+        break;
+      }
+    }
+    if(playerPoints[winningPlayer] < 30 && !isDom(playerPoints[winningPlayer].toString()))
+    {
+      invalidGames[i]["invalid"] = true;
+      invalidGames[i]["reason"] += "(Invalid Winner Points)";
+    }
+    if(hasDuplicate(playerIDs))
+    {
+      invalidGames[i]["invalid"] = true;
+      invalidGames[i]["reason"] += "(Duplicate Player ID)";
+    }
+    var values = [[]];
+    values[0].push(invalidGames[i]["invalid"] ? "INVALID" : "VALID");
+    values[0].push(invalidGames[i]["reason"]);
+    dataSheet.getRange(i + 2, validityOffset + 1, 1, 2).setValues(values);
+  }
+
+}
+
+//Data Helper Functions
+
+function createPlayerStats(numPlayers)
+{
+  playerStats = {};
+  playerStats["gameStats"] = {};
+  playerStats["gameStats"]["turnStats"] = [];
+  playerStats["gameStats"]["games"] = 0;
+  playerStats["gameStats"]["dom"] = {"maps": {}, "turnStats": [], "generalStats": {"general": {"games":0, "wins":0}, "fox": {"games":0, "wins":0}, "bunny": {"games":0, "wins":0}, "mouse": {"games":0, "wins":0}, "bird": {"games":0, "wins":0}}};
+  playerStats["gameStats"]["coalition"] = {"maps": {}, "turnStats": [], "generalStats": {"games": 0, "wins": 0}};
+  playerStats["gameStats"]["wins"] = 0;
+  playerStats["gameStats"]["points"] = 0;
+  playerStats["gameStats"]["teams"] = {};
+  playerStats["gameStats"]["maps"] = {};
+  playerStats["gameStats"]["landmarks"] = {};
+  for(var k = 0; k<numPlayers; k++)
+  {
+    playerStats["gameStats"]["turnStats"].push({"games":0, "wins":0});
+    playerStats["gameStats"]["dom"]["turnStats"].push({"general": {"games": 0, "wins": 0}, "fox":{"games": 0, "wins": 0}, "bunny":{"games": 0, "wins": 0}, "mouse":{"games": 0, "wins": 0}, "bird":{"games": 0, "wins": 0}});
+    playerStats["gameStats"]["coalition"]["turnStats"].push({"games":0, "wins":0});
+  }
+  for(var k = 0; k<maps.length; k++)
+  {
+    playerStats["gameStats"]["maps"][maps[k]] = {"games":0, "wins":0};
+    playerStats["gameStats"]["dom"]["maps"][maps[k]] = {"general": {"games":0, "wins":0}, "fox": {"games":0, "wins":0}, "bunny": {"games":0, "wins":0}, "mouse": {"games":0, "wins":0}, "bird": {"games":0, "wins":0}};
+    playerStats["gameStats"]["coalition"]["maps"][maps[k]] = {"games":0, "wins":0};
+  }
+  for(var k = 0; k<teams.length; k++)
+  {
+    playerStats["gameStats"]["teams"][teams[k]] = {"games":0, "wins":0};
+  }
+  for(var k = 0; k<landmarks.length; k++)
+  {
+    playerStats["gameStats"]["landmarks"][landmarks[k]] = {"games": 0, "wins": 0};
+  }
+  playerStats["gameStats"]["teams"]["Vagabond"]["stats"] = {};
+  for(var k = 0; k<vagabonds.length; k++)
+  {
+    playerStats["gameStats"]["teams"]["Vagabond"]["stats"][vagabonds[k]] = {"games":0, "wins":0};
+  }
+  return playerStats;
+}
+
 function getWinner(text)
 {
   if(RegExp("[fF]irst").test(text))
@@ -1001,86 +1186,7 @@ function getDomType(text)
   }
 }
 
-function getValidGames()
-{
-
-  for(var i = 0; i<invalidGames.length; i++)
-  {
-    var data = allData[i];
-    var playerTeams = [data[dataTeamOffset + 0], data[dataTeamOffset + 1], data[dataTeamOffset + 2], data[dataTeamOffset + 3]];
-    var winningPlayer = getWinner(data[dataWinnerOffset].toString());
-    var playerPoints = [data[dataPointsOffset + 0], data[dataPointsOffset + 1], data[dataPointsOffset + 2], data[dataPointsOffset + 3]];
-    var playerIDs = [data[dataIDOffset + 0], data[dataIDOffset + 1], data[dataIDOffset + 2], data[dataIDOffset + 3]];
-
-    for(var j = 0; j<playerTeams;j++)
-    {
-      if(isVagabond(playerTeams[j].toString()) && isDom(playerPoints[j].toString()))
-      {
-        invalidGames[i]["invalid"] = true;
-        invalidGames[i]["reason"] += "(Vagabond Dom)";
-        break;
-      }
-    }
-    if(playerPoints[winningPlayer] < 30 && !isDom(playerPoints[winningPlayer].toString()))
-    {
-      invalidGames[i]["invalid"] = true;
-      invalidGames[i]["reason"] += "(Invalid Winner Points)";
-    }
-    if(hasDuplicate(playerIDs))
-    {
-      invalidGames[i]["invalid"] = true;
-      invalidGames[i]["reason"] += "(Duplicate Player ID)";
-    }
-    var values = [[]];
-    values[0].push(invalidGames[i]["invalid"] ? "INVALID" : "VALID");
-    values[0].push(invalidGames[i]["reason"]);
-    dataSheet.getRange(i + 2, validityOffset + 1, 1, 2).setValues(values);
-  }
-
-}
 function hasDuplicate(arr)
 {
   return (new Set(arr)).size != arr.length;
-}
-
-
-function createPlayerStats(numPlayers)
-{
-  playerStats = {};
-  playerStats["gameStats"] = {};
-  playerStats["gameStats"]["turnStats"] = [];
-  playerStats["gameStats"]["games"] = 0;
-  playerStats["gameStats"]["dom"] = {"maps": {}, "turnStats": [], "generalStats": {"general": {"games":0, "wins":0}, "fox": {"games":0, "wins":0}, "bunny": {"games":0, "wins":0}, "mouse": {"games":0, "wins":0}, "bird": {"games":0, "wins":0}}};
-  playerStats["gameStats"]["coalition"] = {"maps": {}, "turnStats": [], "generalStats": {"games": 0, "wins": 0}};
-  playerStats["gameStats"]["wins"] = 0;
-  playerStats["gameStats"]["points"] = 0;
-  playerStats["gameStats"]["teams"] = {};
-  playerStats["gameStats"]["maps"] = {};
-  playerStats["gameStats"]["landmarks"] = {};
-  for(var k = 0; k<numPlayers; k++)
-  {
-    playerStats["gameStats"]["turnStats"].push({"games":0, "wins":0});
-    playerStats["gameStats"]["dom"]["turnStats"].push({"general": {"games": 0, "wins": 0}, "fox":{"games": 0, "wins": 0}, "bunny":{"games": 0, "wins": 0}, "mouse":{"games": 0, "wins": 0}, "bird":{"games": 0, "wins": 0}});
-    playerStats["gameStats"]["coalition"]["turnStats"].push({"games":0, "wins":0});
-  }
-  for(var k = 0; k<maps.length; k++)
-  {
-    playerStats["gameStats"]["maps"][maps[k]] = {"games":0, "wins":0};
-    playerStats["gameStats"]["dom"]["maps"][maps[k]] = {"general": {"games":0, "wins":0}, "fox": {"games":0, "wins":0}, "bunny": {"games":0, "wins":0}, "mouse": {"games":0, "wins":0}, "bird": {"games":0, "wins":0}};
-    playerStats["gameStats"]["coalition"]["maps"][maps[k]] = {"games":0, "wins":0};
-  }
-  for(var k = 0; k<teams.length; k++)
-  {
-    playerStats["gameStats"]["teams"][teams[k]] = {"games":0, "wins":0};
-  }
-  for(var k = 0; k<landmarks.length; k++)
-  {
-    playerStats["gameStats"]["landmarks"][landmarks[k]] = {"games": 0, "wins": 0};
-  }
-  playerStats["gameStats"]["teams"]["Vagabond"]["stats"] = {};
-  for(var k = 0; k<vagabonds.length; k++)
-  {
-    playerStats["gameStats"]["teams"]["Vagabond"]["stats"][vagabonds[k]] = {"games":0, "wins":0};
-  }
-  return playerStats;
 }
