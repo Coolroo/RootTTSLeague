@@ -889,7 +889,7 @@ function compileStats()
         }
         
 
-        seenVaga ||= isVaga;
+        seenVaga = seenVaga || isVaga;
         //If we are looking at a faction that was chosen
         if(j != numPlayers)
         {
