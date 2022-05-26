@@ -62,13 +62,15 @@ function formSubmitted()
   allData = dataSheet.getRange(2, 1, dataSheet.getLastRow() - 1, dataSheet.getLastColumn()).getValues();
   console.log(allData.length);
   getValidGames();
+  var splices = 0;
   for(var i = 0; i<invalidGames.length; i++)
   {
-    console.log(invalidGames[i]["invalid"]);
+    //console.log(invalidGames[i]["invalid"]);
     if(invalidGames[i]["invalid"])
     {
       console.log("GAME " + (i + 1) + " IS INVALID");
-      allData.splice(i, 1);
+      allData.splice(i - splices, 1);
+      splices++;
     }
   }
   console.log(allData.length);
