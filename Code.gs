@@ -60,16 +60,18 @@ function formSubmitted()
   spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
   dataSheet = spreadsheet.getSheetByName("Data Input");
   allData = dataSheet.getRange(2, 1, dataSheet.getLastRow() - 1, dataSheet.getLastColumn()).getValues();
+  console.log(allData.length);
   getValidGames();
   for(var i = 0; i<invalidGames.length; i++)
   {
-    console.log(invalidGames[i]);
+    console.log(invalidGames[i]["invalid"]);
     if(invalidGames[i]["invalid"])
     {
       console.log("GAME " + (i + 1) + " IS INVALID");
       allData.splice(i, 1);
     }
   }
+  console.log(allData.length);
   var stats = compileStats();
   console.log("Compiled Data");
   refreshPlayerStats(stats["PlayerStats"]);
