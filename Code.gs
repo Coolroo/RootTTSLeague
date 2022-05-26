@@ -39,11 +39,15 @@ var spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
 var dataSheet = spreadsheet.getSheetByName("Data Input");
 var allData = dataSheet.getRange(2, 1, dataSheet.getLastRow() - 1, dataSheet.getLastColumn()).getValues();
 
-var invalidGames = new Array(allData.length).fill(null);
+var invalidGames = new Array(allData.length).fill(new Map());
 
 //Invalid Games
 var falseGames = [108, 121];
-for(var i = 0; i<invalidGames.length; i++)
+console.log(falseGames);
+
+function formSubmitted() 
+{
+  for(var i = 0; i<invalidGames.length; i++)
   {
     var newDict = {"invalid": false, "reason": ""};
     invalidGames[i] = newDict;
@@ -53,22 +57,22 @@ for(var i = 0; i<invalidGames.length; i++)
     invalidGames[falseGames[i]]["invalid"] = true;
     invalidGames[falseGames[i]]["reason"] = "(Manual Override)";
   }
-
-function formSubmitted() 
-{
   spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
   dataSheet = spreadsheet.getSheetByName("Data Input");
   allData = dataSheet.getRange(2, 1, dataSheet.getLastRow() - 1, dataSheet.getLastColumn()).getValues();
+  console.log(allData.length);
   getValidGames();
+  var splices = 0;
   for(var i = 0; i<invalidGames.length; i++)
   {
-    //console.log(invalidGames[i]);
+    //console.log(invalidGames[i]["invalid"]);
     if(invalidGames[i]["invalid"])
     {
       console.log("GAME " + (i + 1) + " IS INVALID");
-      allData.splice(i, 1);
+      allData.splice(i - splices++, 1);
     }
   }
+  console.log(allData.length);
   var stats = compileStats();
   console.log("Compiled Data");
   refreshPlayerStats(stats["PlayerStats"]);
