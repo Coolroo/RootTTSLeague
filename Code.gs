@@ -69,8 +69,7 @@ function formSubmitted()
     if(invalidGames[i]["invalid"])
     {
       console.log("GAME " + (i + 1) + " IS INVALID");
-      allData.splice(i - splices, 1);
-      splices++;
+      allData.splice(i - splices++, 1);
     }
   }
   console.log(allData.length);
