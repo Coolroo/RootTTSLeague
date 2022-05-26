@@ -39,28 +39,27 @@ var spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
 var dataSheet = spreadsheet.getSheetByName("Data Input");
 var allData = dataSheet.getRange(2, 1, dataSheet.getLastRow() - 1, dataSheet.getLastColumn()).getValues();
 
-var invalidGames = new Array(allData.length).fill(new Map());
 
 //Invalid Games
 var falseGames = [108, 121];
-console.log(falseGames);
+var invalidGames = new Array(allData.length).fill(null);
+for(var i = 0; i<invalidGames.length; i++)
+{
+  var newDict = {"invalid": false, "reason": ""};
+  invalidGames[i] = newDict;
+}
+for(var i = 0; i<falseGames.length; i++)
+{
+  invalidGames[falseGames[i]]["invalid"] = true;
+  invalidGames[falseGames[i]]["reason"] = "(Manual Override)";
+}
 
 function formSubmitted() 
 {
-  for(var i = 0; i<invalidGames.length; i++)
-  {
-    var newDict = {"invalid": false, "reason": ""};
-    invalidGames[i] = newDict;
-  }
-  for(var i = 0; i<falseGames.length; i++)
-  {
-    invalidGames[falseGames[i]]["invalid"] = true;
-    invalidGames[falseGames[i]]["reason"] = "(Manual Override)";
-  }
   spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
   dataSheet = spreadsheet.getSheetByName("Data Input");
   allData = dataSheet.getRange(2, 1, dataSheet.getLastRow() - 1, dataSheet.getLastColumn()).getValues();
-  console.log(allData.length);
+  //console.log(allData.length);
   getValidGames();
   var splices = 0;
   for(var i = 0; i<invalidGames.length; i++)
@@ -72,7 +71,7 @@ function formSubmitted()
       allData.splice(i - splices++, 1);
     }
   }
-  console.log(allData.length);
+  //console.log(allData.length);
   var stats = compileStats();
   console.log("Compiled Data");
   refreshPlayerStats(stats["PlayerStats"]);
@@ -84,7 +83,7 @@ function formSubmitted()
 
 function compileStats()
 {
-  console.log("Compile Stats");
+  console.log("Compiling Stats");
 
   var stats = {"PlayerStats": {}, "FactionStats": {}, "VagabondStats": {}, "DomStats": {}, "SeasonStats": {}};
 
